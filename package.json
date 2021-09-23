@@ -1,0 +1,22 @@
+{
+  "name": "ls",
+  "version": "1.0.0",
+  "description": "price and uncertainty oracle",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/i001962/chance-xyz.git"
+  },
+  "author": "i001962",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/i001962/chance-xyz/issues"
+  },
+  "homepage": "https://github.com/i001962/chance-xyz#readme",
+  "dependencies": {
+    "jStat": "^1.8.6"
+  }
+}

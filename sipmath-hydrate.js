@@ -1,18 +1,38 @@
 const jStat = require("jstat")
-const Library = require('./siplibs/test.json');
-// const {GoogleSpreadsheet} = require('google-spreadsheet');
-// const fetch = require("node-fetch");
+const Library = require('./siplibs/test.json');  
+// TODO the test.json will be pulled in at runtime from decentralized storage or smart contract metadata
+// We will create a set of libraries for common portfolios. This is an artificial constraint to make our life easier.
+
+///////REMOVE THIS WHEN DONE TESTING
+// Helper for cli args when testing
 // require('dotenv').config();
-// config go to file later
+// var myArgs = process.argv.slice(2); 
+// console.log('myArgs: ', myArgs);
+// How many simulations trials will be run for each SIP
+const maxTrials = 1000; // Global. Long story but we should artificially set limit max limit to 1000 trials to save browsers
+const returnTrials = 1000;
+// Get SIP names from a library. In out hackathon case SIPs are tokens
+// SIPs - Stochastic Information Packets. They contain the Shape, Relationship, and order of a distribution.
+const sipNames = Library.sips.map(x => x.name)
+// console.log("availableTokens", sipNames);
+sipNames.forEach(token => {
+    // console.log("token ", token);
+    const set = new Set([token, hydrateLibrary(Library,token,returnTrials)]);
+    const outputtrials = [...set];
+    // let outputtrials[] = hydrateLibrary(Library,token,returnTrials);
+    console.log(outputtrials)
+});
+///////END OF REMOVE THIS WHEN DONE TESTING
 
-// const for now
-const trials = 100;
 
-// start hydrating a sip from the library
-async function setupFeeds() {
-    console.log("Starting Hydrate")
-    //console.log(Library)
-    simulateSIP(Library, "thetatoken") // see siplibs/test.json for token names
+// Call this function to start hydrating a SIP from a library
+// This is proabably the entry point for this js file
+async function hydrateLibrary(LibraryIn, tokenIn, numberOfTrialsRequested) {
+    // console.log("Starting to Hydrate ", tokenIn)
+    var output = simulateSIP(LibraryIn, tokenIn) // see siplibs/test.json for token names
+    let merged = flatten(output);
+    // console.table(merged.slice(0, numberOfTrialsRequested)); // how many trials TODO add option for a specific trial
+    return merged.slice(0, numberOfTrialsRequested);
 }
 
 function simulateSIP(selfIn, sip) {
@@ -24,80 +44,72 @@ function simulateSIP(selfIn, sip) {
     let returnValue = [];
     // console.log("sip requested ", sip);
     let sipIndex = selfIn.sips.findIndex((item) => item.name === sip);
-    console.log("sipIndex ", sipIndex);
+    // console.log("sipIndex ", sipIndex);
 
     let aCoeffs = selfIn.sips[sipIndex].arguments.aCoefficients;
-    console.log("The aCoeffs for ", aCoeffs);
+    //km console.log("The aCoeffs for ", aCoeffs);
     let lowerBound = "";
     let upperBound = "";
     let a = "";
-    console.log(selfIn.sips[sipIndex].ref);
+    // console.log(selfIn.sips[sipIndex].ref);
     let functionName = selfIn.sips[sipIndex].function;
-
+    // This need to be rethought out as we are pulling a lot of numbers we don't need but for now :shrugs:
     if (selfIn.sips[sipIndex].ref.source == "copula") {
-        console.log("matching copula");
+        //console.log("matching copula");
         randomarray = generateCopula(selfIn, selfIn.sips[sipIndex].ref.copulaLayer); // c1 or c2 etc
-        console.log("copula generate ", randomarray);
+        // console.log("copula generate ", randomarray);
     } else if (selfIn.sips[sipIndex].ref.source == "rng") {
-        console.log("hmm matching rng sip? that's ok");
-        // need "hdr1" and library as input to generateRandom
-         randomarray = generateRandom(
+        //km console.log("hmm matching rng sip? that's ok");
+        // need "hdr1" and library as input to prepGenerateRandom
+        randomarray = prepGenerateRandom(
             selfIn.sips[sipIndex].ref.name,
             selfIn.U01
         );
         //console.log("yo dog ", randomarray);
         // randomarray[0] = temprandomarray;
-        console.log("NOT copula sip ", randomarray);
+        //km console.log("NOT copula sip ", randomarray);
     }
 
     try {
-        // Something that could throw exception TODO avoid this
         lowerBound = selfIn.sips[sipIndex]["arguments"]["lowerBound"];
     } catch (e) {
-        console.log("Nothing to see here. Just no lowerBound");
+        //km console.log("Nothing to see here. Just no lowerBound");
     }
     try {
         upperBound = selfIn.sips[sipIndex]["arguments"]["upperBound"];
     } catch (e) {
-        console.log("Nothing to see here. Just no lowerBound");
+        //km console.log("Nothing to see here. Just no lowerBound");
     }
-
-    //let functionName = selfIn.sips[sipIndex].function;
-
     // if the function is a built in function Metalog_1_0 then,
     // for each item
     if (functionName == "Metalog_1_0") {
-        // TODO: change for loop into a vectorized numpy function
+        // TODO: change for loop into a vectorized numpy like function.
         if (randomarray.constructor === Array) { //hmm forgot why I did this. I'm getting old
             let wrapArrayInArray = [randomarray]; // looking for array of arrays
-            console.log("wrapArrayInArray ", wrapArrayInArray);
-            console.log("process non copula sip");   
+            //km console.log("wrapArrayInArray ", wrapArrayInArray);
+            //km console.log("process non copula sip");   
             // console.log("randomarray ", randomarray);
             for (var i = 0; i < randomarray.length; i++) {
-                console.log("randomarray[i] ", randomarray[i]);
-                let ml = metalog(randomarray[i], aCoeffs, lowerBound, upperBound);                //console.log("a ", a);
+                //km console.log("randomarray[i] ", randomarray[i]);
+                let ml = metalog(randomarray[i], aCoeffs, lowerBound, upperBound); //console.log("a ", a);
                 returnValue.push(ml);
             }
 
         }
-        console.log("sipSim length of randomarray ", randomarray.length);
+        //km console.log("sipSim length of randomarray ", randomarray.length);
         for (let index = 0; index < randomarray.length; ++index) {
             let ml = metalog(randomarray[index], aCoeffs, lowerBound, upperBound);
             //returnValue.append(ml);
             returnValue.push(ml);
         }
-        //for trial in randomarray:
     }
-    //selfIn.sips = returnValue;
-    //return randomarray;
+    //selfIn.sips = returnValue;  
     return returnValue;
 }
 
-
 function metalog(y, a, bl = "", bu = "") {
     // y = array of unis, a = aacoeffs
-    //let t = Array(a.length); // a and now t are acoeff
-    console.log("how many of aCoeffs ", a.length);
+    //km console.log("how many of aCoeffs ", a.length);
 
     function convert_to_float(a) {
         // Using parseFloat() method
@@ -106,85 +118,59 @@ function metalog(y, a, bl = "", bu = "") {
         return floatValue;
     }
 
-    //Array(6).fill(null).map((_, i) => i);
-    console.log("y ", typeof y);
-    console.log("y me ", y); // y[x] is an array of unis may have been thru copula calc
+    //km console.log("y ", typeof y);
+    //km console.log("y me ", y); // y[x] is an array of unis may have been thru copula calc
     let vector = [];
     // np_a = np.array(a).reshape(-1, 1)
-    console.log("a ", typeof a, "a length ", a.length);
-
-    console.log("a ", a);
-    let np_a = a; // !!TODO CONFIRM matrixmult does this need to be vertical array??
+    //km console.log("a ", typeof a, "a length ", a.length);
+    //km console.log("a ", a);
+    let np_a = a; 
     //for n in t:
     for (let index = 1; index < (a.length + 1); ++index) { //cant start with 0 coeeffs for each aCoeff
-                vector.push(basis(y, index));
-        }    
+        vector.push(basis(y, index));
+    }
+    //km console.log("np_a ", typeof np_a, 'length: ', np_a.length);
+    //km console.log("vector ", typeof vector, " length ", vector.length);
 
-    //vector = np.array(vector, (dtype = object));
-
-    // let mky = np.matmul(vector, np_a);
-    console.log("np_a ", typeof np_a, 'length: ', np_a.length);
-    console.table( np_a);
-    console.log("vector ", typeof vector, " length ", vector.length);
-    console.table( vector);
-
-/*     let MatrixProd = (A, B) =>
-    A.map((row, i) =>
-      B[0].map((_, j) =>
-        row.reduce((acc, _, n) =>
-          acc + A[i][n] * B[n][j], 0
-        )
-      )
-    ) */
-//let A = [[8, 3], [2, 4], [3, 6]];
-//let B = [[1, 2, 3], [4, 6, 8]];
-console.log('this is B ', typeof np_a, np_a);
-//let mky = MatrixProd(vector, np_a);
-// np_a = [ [1], [-3.37926448792588], [1.5782860765295803], [-0.4670501767969924] ]
-//vector =[[0.994838102415617],[0.004685644724859045],[-0.004451370153069208],[-0.013144268586090958]]
-//above seems to work
     let wrappedVector = [vector];
     let wrappedNp_x = [np_a];
-    let herItis = [[]];
+  
     let wrappedNp_a = wrappedNp_x[0].map(e => [e])
 
-    /* wrappedNp_a.forEach(occur => {
-        wrappedNp_a[occur] = occur.map(convert_to_float);
-    }); */
-    //wrappedNp_a.forEach(function(is) { is.forEach( function (his, i) { console.log(his, i) } ) } );
-    console.log("wrappedVector ", wrappedVector);
-    console.log("wrappedNp_a ", wrappedNp_a);
     let mky = multiply(wrappedVector, wrappedNp_a);
-    console.log("mm array of unis with acoeffs ", mky);
+    // console.log("mm array of unis with acoeffs HERE ", mky); // Important check point
 
     // Unbounded
-    // if (type(bl) == str) and (type(bu) == str):
+    if (typeof (bl) == String && typeof (bu) == String) {
+        return mky; // working
+    }
     if (
         (typeof bl === "string" || bl instanceof String) &&
         (typeof bu === "string" || bu instanceof String)
     ) {
-        return mky;
+        return mky; // TODO not tested!! may not be needed for hackathon
     }
     // Bounded lower
     else if (typeof bl !== "string" && typeof bu == "string") {
         convert_to_float(bl);
-        return bl + Math.exp(mky);
+        return bl + Math.exp(mky); // TODO not tested!! may not be needed for hackathon
     }
     // Bounded upper
     else if (typeof bl == "string" && typeof bu != "string") {
         convert_to_float(bu);
-        return bu - Math.exp(-mky);
+        return bu - Math.exp(-mky); // TODO not tested!! may not be needed for hackathon
     }
     // Bounded
     else if (typeof bl != "string" && typeof bu != "string") {
-        return bl + (bu * Math.exp(mky)) / (1 + Math.exp(mky));
+        return bl + (bu * Math.exp(mky)) / (1 + Math.exp(mky)); // TODO not tested!! may not be needed for hackathon
     }
 }
+
 function generateCopula(selfy, copulaCount) {
-    console.log(selfy, copulaCount);
+    // console.log(selfy, copulaCount);
     let ret = [];
     let whichCorrelationMatrix = [];
-    // Do all of this for all copulas in document
+    // Do all of this for all copulas in the layer
     selfy.U01.copula.forEach((copula) => {
         if (copula.function == "GaussianCopula") {
             // now get the cholesky factors
@@ -193,20 +179,13 @@ function generateCopula(selfy, copulaCount) {
             let copulaArgs = copula.arguments.rng;
             let randomMatrixOfHDRs = [];
             for (let i = 0; i < copulaArgs.length; i++) {
-                console.log("caller ", copulaArgs[i]);
-                let val = generateRandom(copulaArgs[i], selfy.U01); // from U01/RNG
-                /*  {
-                            "counter": "PM_Index",
-                            "entity": 1,
-                            "varId": 6187319,
-                            "seed3": 0,
-                            "seed4": 0
-                        } */
-
+                //km console.log("caller ", copulaArgs[i]);
+                let val = prepGenerateRandom(copulaArgs[i], selfy.U01); // from U01/RNG
+                /* TODO update HDRv2 using { "counter": "PM_Index","entity": 1,"varId": 6187319,"seed3": 0,"seed4": 0} */
                 randomMatrixOfHDRs.push(val);
-                console.log("randomMatrixOfHDRs ", randomMatrixOfHDRs);
+                //km console.log("randomMatrixOfHDRs ", randomMatrixOfHDRs);
             }
-            // WORKS as of here
+
             selfy.globalVariables.forEach((item, index) => {
                 if (item["name"] == specifyCorrelationMatrix) {
                     whichCorrelationMatrix = index;
@@ -220,22 +199,20 @@ function generateCopula(selfy, copulaCount) {
             let correlationMatrix = convertMx(thisCorrelationMatrix);
 
             // Find the Cholesky Factors
-            //let lu = jStat.lu(correlationMatrix);
-            // console.log("you are lower tri ", correlationMatrix);
+            //km console.log("you are lower tri ", correlationMatrix);
             let cho = jStat(jStat.cholesky(correlationMatrix));
 
-            //cho = cholesky(correlationMatrix, (lower = False)); //  TODO: jstat?
-            console.log("Cholesky: \n", cho);
-            // LOOKS GOOD HERE BUT NEED TO CONFIRM
+            //km console.log("Cholesky: \n", cho); // IMPORTANT CHECKPOINT
 
             //cho = np.matrix(cho)
             //Apply the Cholesky Factors to the randoms
             let col = copula.copulaLayer.findIndex((item) => item === copulaCount); //
-            console.log("this is copula level eg 2=c3,3=c4 ", col);
+            //km console.log("this is copula level eg 2=c3,3=c4 ", col);
             let choSubSample = cho[col].slice(0, col + 1); //
-            console.log("this is cho sample ", choSubSample);
+            ////km console.log("this is cho sample ", choSubSample);
             let runiRow = [];
             let corrSamples = [];
+            let normSinv = [];
 
             for (let i = 0; i < randomMatrixOfHDRs[0].length; i++) {
                 // for each trail
@@ -244,80 +221,34 @@ function generateCopula(selfy, copulaCount) {
                     //each variable upto pos col
                     // get first x cols in randuniframe
                     randomMatrixHRDsSample[index] = randomMatrixOfHDRs[index]; //
-                    //console.log(randomMatrixHRDsSample[index].length);
-                    // console.log("runi samples only arrays needed ", randomMatrixHRDsSample);
+                    ////km console.log(randomMatrixHRDsSample[index].length);
+                    // //km console.log("runi samples only arrays needed ", randomMatrixHRDsSample);
 
                     runiRow[i] = randomMatrixHRDsSample.map(function (x) {
-                        //console.log("runi row ", index, x[0]);
+                        ////km console.log("runi row ", index, x[0]);
                         return x[i];
                     });
-                    //          console.log("runi row ", runiRow);
+                    //km console.log("runi row ", runiRow);
                 }
-                // console.log("runi row and choSubSample ", runiRow[i], choSubSample);
-
-                // GOOD TO HERE?
-                corrSamples[i] = jStat.dot(runiRow[i], choSubSample);
-                // let mMult = jStat.dot(invCdf, choSubSample);
+                ///console.log("runi row and choSubSample ", runiRow[i], choSubSample); //IMPORTANT
+                normSinv = runiRow[i].map((sin) => jStat.normal.inv(sin, 0, 1)); // TODO: Replace jstat 
+                //console.log("corrSamples after normInv of rand ", normSinv);
+                corrSamples[i] = jStat.dot(normSinv, choSubSample); // TODO: Replace jstat 
+                corrSamples[i] = jStat.normal.cdf(corrSamples[i], 0, 1); // TODO: Replace jstat 
             }
-            console.log("YIPPE check me... ", corrSamples);
+            //console.log("YIPPE check me... ", corrSamples);
             ret = corrSamples;
-            //for (let i = 0; i < randomMatrixHRDsSample[index].length; i++) {
-            //  corrSamples[index] = cho.multiply(
-            //    randomMatrixHRDsSample[index][i],
-            //    choSubSample
-            //  );
-            //console.log("corrSamples ", corrSamples);
-            // changed to trials ?? why 1000?? hmm
-            // asked for
-            // if C4 we need uniRandoArrays[] 0,1,2,3
-            // find out what rows of the hdr ret matrix to use based on what was asked for
-            //           col = copulas["copulaLayer"].index(random)
-            //           choSubSample = cho[:col+1, col]
-            //           trial = randomMatrix[1:col+2, i]
-            //           invCdf = norm.ppf(trial).reshape(-1, col+1)
-            //           # get HDRs from matrix
-            //           mMult = np.dot(invCdf, choSubSample)
-            //           val = float(norm.cdf(mMult))
-            //           ret.append(val)
 
-            //console.log(randomMatrixOfHDRs);
-            //console.log("matrix mult ", corrSamples);
-            //let choSubSample = cho[(0, [col + 1, col])];
-            //console.log("this is chosample ", choSubSample);
-            //  let trial = randomMatrixOfHDRs[(1, [col + 2, i])];
-
-            // let invCdf = norm.ppf(trial).reshape(-1, col + 1);
-            // get HDRs from matrix
-            // let mMult = jStat.dot(invCdf, choSubSample);
-            // let val = norm.cdf(mMult);
-
-            //Convert to uniform correlated samples over 0,1 using normal CDF
-            // var uniformCorrSamples = corrSamples.map(function (x) {
-            // var normDist = jStat.normal(0, 1); //FTW Cholesky needs normal?
-            //   var normDist = jStat.normal.inv(x, 0, 1);
-            //  hrd , 0,1 --- If not cormatrix - but rnd straight into metalog else output of cho goes into metalog
-            // return normDist.cdf(x);
-            //console.log(normDist);
-            //   return normDist;
-            //   });
-            // }
-            // }
-            //  let val = uniformCorrSamples;
-            //console.log(val);
-            //  ret.push(val);
-            //  }
         } else {
             console.log(
                 "TypeError The function type for this copula is unsupported. "
             );
         }
     });
-    // Add the result of the cholesky to the copula variable ??
-    //self.copula = corrSamples;
     return ret;
 }
 
-function generateRandom(args, selfIn) {
+function prepGenerateRandom(args, selfIn) {
     // from U01/RNG
     /*  {
                       "counter": "PM_Index",
@@ -331,26 +262,23 @@ function generateRandom(args, selfIn) {
     let rngArgs = selfIn.rng.findIndex((x) => x.name === args);
     // console.log(args, rngArgs);
     console.log("seed ", selfIn.rng[rngArgs].arguments.varId);
-
-    //let rngArgs = self.U01.rng.indexOf(name.args);
-    //console.log("use as seed ", rngArgs.arguments); // use as seeds
     var samples = [];
     const seedPerDist = selfIn.rng[rngArgs].arguments.varId;
-    //var seedPerDist = Math.random();
     // console.log(seedPerDist); // just one for now
-    for (var distTrials = 0; distTrials < trials; distTrials++) {
+    for (var distTrials = 0; distTrials < maxTrials; distTrials++) {
         samples[distTrials] = HDRando(seedPerDist, distTrials);
     }
-    console.log("samples og ", samples);
+    // console.log("samples og ", samples); // IMPORTANT
     return samples;
 }
 
-// hubbardresearch.com for more info
+// hubbardresearch.com for more info. This is a function that generates the random numbers with seeds.
+// TODO update this to use all the seeds from the U01/RNG ie use HRDv2. Move into own package?
 function HDRando(seed, PM_Index) {
     const largePrime = 2147483647;
     const million = 1000000;
     const tenMillion = 10000000;
-    // Do we need this in js? or is there a modulo?
+    // We need this in js unles we find a modulo function
     function MOD(n, m) {
         var remain = n % m;
         return Math.floor(remain >= 0 ? remain : remain + m);
@@ -380,17 +308,13 @@ function HDRando(seed, PM_Index) {
         largePrime;
     return randi;
 }
-
+// HELPER FUNCTIONS TODO: Remove need for jstat
 function convertMx(correlationMatrix) {
     let variables = [];
 
     //gotta figure out all of the variables in the matrix
-    //for vars in correlationMatrix:
-    //    if vars["row"] not in variables:
-    //        variables.append(vars["row"])
-    //console.log("corm ", correlationMatrix);
+    //console.log("coreLMat ", correlationMatrix);
     correlationMatrix.forEach((sipVar) => {
-        //console.log("here too ", sipVar);
         if (variables.includes(sipVar["row"])) {
             //console.log("variables already in");
         } else {
@@ -400,8 +324,6 @@ function convertMx(correlationMatrix) {
     });
 
     let variableCount = variables.length;
-
-    // let returnArray = np.zeros(shape=[variableCount, variableCount])
     let returnArray = Array(variableCount)
         .fill()
         .map(() => Array(variableCount).fill(0));
@@ -434,29 +356,29 @@ function convertMx(correlationMatrix) {
 }
 
 function multiply(a, b) {
-    console.log("a ", a, "b",b);
+    //console.log("a ", a, "b", b);
     var aNumRows = a.length,
         aNumCols = a[0].length || 0, // if a is a vector
         bNumRows = b.length,
         bNumCols = b[0].length || 0,
         m = new Array(aNumRows); // initialize array of rows
-    console.log("aNumRows ", aNumRows, "aNumCols ", aNumCols,"bNumCols",bNumCols,"bNumCols",bNumCols);
+    //console.log("aNumRows ", aNumRows, "aNumCols ", aNumCols,"bNumCols",bNumCols,"bNumCols",bNumCols);
     for (var r = 0; r < aNumRows; ++r) {
         m[r] = new Array(bNumCols); // initialize the current row
         for (var c = 0; c < bNumCols; ++c) {
-            console.log("r ", r, "c ", c);
+            //console.log("r ", r, "c ", c);
             m[r][c] = 0; // initialize the current cell
             for (var i = 0; i < aNumCols; ++i) {
                 m[r][c] += a[r][i] * b[i][c];
-                console.log("a[r][i] ", a[r][i]);
+                // console.log("a[r][i] ", a[r][i]);
             }
         }
     }
     return m;
 }
 
-function basis(y, t) {
-    console.log("aCoeff position in basis ", t, y);
+function basis(y, t) { // y must be uniform 0-1
+    // console.log("aCoeff position in basis ", t, y);
     //console.log("y in basis ", y);
     let ret = 0;
     if (t == 1) {
@@ -465,7 +387,7 @@ function basis(y, t) {
         ret = Math.log(y / (1 - y));
         // console.log("ret when t2 ", y, ret);
         if (isNaN(ret)) {
-            console.log("ret when t2 ", y, ret);
+            //       console.log("ret when t2 ", y, ret);
         }
     } else if (t == 3) {
         ret = (y - 0.5) * Math.log(y / (1 - y));
@@ -475,23 +397,26 @@ function basis(y, t) {
     } else if (t == 4) {
         ret = y - 0.5;
         if (isNaN(ret)) {
-            console.log("ret when t4 ", y, ret);
+            //     console.log("ret when t4 ", y, ret);
         }
     } else if (t >= 5 && t % 2 == 1) {
         ret = Math.pow(y - 0.5, Math.floor((t - 1) / 2));
         if (isNaN(ret)) {
-            console.log("ret when t5 ", y, ret);
+            //     console.log("ret when t5 ", y, ret);
         }
     } // requires js int division
     else if (t >= 6 && t % 2 == 0) {
         ret = Math.pow(y - 0.5, Math.floor((t - 1) / 2)) * Math.log(y / (1 - y));
         if (isNaN(ret)) {
-            console.log("ret when t6>= ", y, ret);
+            //     console.log("ret when t6>= ", y, ret);
         }
-    } // requires js int division
-    console.log("out from basis ", ret);
+    } // requires js int division need to check if this is correct
+    // console.log("out from basis ", ret);
     return ret;
 }
 
-//setupContract()
-setupFeeds()
+function flatten(arr) {
+  return arr.reduce(function (flat, toFlatten) {
+      return flat.concat(Array.isArray(toFlatten) ? flatten(toFlatten) : toFlatten);
+  }, []);
+}

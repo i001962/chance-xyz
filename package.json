@@ -17,6 +17,6 @@
   },
   "homepage": "https://github.com/i001962/chance-xyz#readme",
   "dependencies": {
-    "jStat": "^1.8.6"
+    "jstat": "^1.9.5"
   }
 }

@@ -1,9 +1,10 @@
-const jStat = require("jstat")
-const Library = require('./siplibs/test.json');  
+///////REMOVE THIS WHEN DONE TESTING
+//CURENTLY DEPENDS ON jstat.js
+//const jStat = require("jstat") // add back for local testing
+
+//const Library = require('./siplibs/test.json');  // add back for local testing
 // TODO the test.json will be pulled in at runtime from decentralized storage or smart contract metadata
 // We will create a set of libraries for common portfolios. This is an artificial constraint to make our life easier.
-
-///////REMOVE THIS WHEN DONE TESTING
 // Helper for cli args when testing
 // require('dotenv').config();
 // var myArgs = process.argv.slice(2); 
@@ -11,23 +12,25 @@ const Library = require('./siplibs/test.json');
 // How many simulations trials will be run for each SIP
 const maxTrials = 1000; // Global. Long story but we should artificially set limit max limit to 1000 trials to save browsers
 const returnTrials = 1000;
+/*
 // Get SIP names from a library. In out hackathon case SIPs are tokens
 // SIPs - Stochastic Information Packets. They contain the Shape, Relationship, and order of a distribution.
-const sipNames = Library.sips.map(x => x.name)
+const sipNames = Library.sips.map(x => x.name) // add back for local testing
 // console.log("availableTokens", sipNames);
-sipNames.forEach(token => {
+sipNames.forEach(token => { //add back for local testing
     // console.log("token ", token);
-    const set = new Set([token, hydrateLibrary(Library,token,returnTrials)]);
-    const outputtrials = [...set];
+    const set = new Set([token, hydrateLibrary(Library,token,returnTrials)]); //add back for local testing
+    const outputtrials = [...set]; //add back for local testing
     // let outputtrials[] = hydrateLibrary(Library,token,returnTrials);
-    console.log(outputtrials)
-});
+    console.log(outputtrials) //add back for local testing
+}); //add back for local testing
+*/
 ///////END OF REMOVE THIS WHEN DONE TESTING
 
 
 // Call this function to start hydrating a SIP from a library
 // This is proabably the entry point for this js file
-async function hydrateLibrary(LibraryIn, tokenIn, numberOfTrialsRequested) {
+ function hydrateLibrary(LibraryIn, tokenIn, numberOfTrialsRequested) {
     // console.log("Starting to Hydrate ", tokenIn)
     var output = simulateSIP(LibraryIn, tokenIn) // see siplibs/test.json for token names
     let merged = flatten(output);
@@ -261,7 +264,7 @@ function prepGenerateRandom(args, selfIn) {
     // console.log("in bound selfIn ", selfIn.rng);
     let rngArgs = selfIn.rng.findIndex((x) => x.name === args);
     // console.log(args, rngArgs);
-    console.log("seed ", selfIn.rng[rngArgs].arguments.varId);
+    //console.log("seed ", selfIn.rng[rngArgs].arguments.varId);
     var samples = [];
     const seedPerDist = selfIn.rng[rngArgs].arguments.varId;
     // console.log(seedPerDist); // just one for now

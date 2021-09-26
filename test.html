@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>SIPMath Library Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/jstat@1.9.5/dist/jstat.min.js"
+    integrity="sha256-GADF/umy5Gco3q38B6dzNk32Q34LSns5BNsU2dzC9Q4=" crossorigin="anonymous"></script>
+  <script type='text/javascript' src='./sipmath-hydrate.js'></script>
+  <script type="text/javascript" src="https://ipfs.io/ipfs/QmTn16U9YtbMeGkYWtRFZ5XrNA7tiKQYyRSgX4Es3TWouB"></script>
+  <script src="https://code.jquery.com/jquery-3.5.0.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega@5.20.2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5.1.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-embed@6.17.0"></script>
+</head>
+
+<body>
+  <script>
+    //  var LibraryIn = JSON.parse(siplib);
+    //  var test = hydrateLibrary(LibraryIn, tokenIn, numberOfTrialsRequested) 
+    //  console.log(test);
+  </script>
+  <h1>SIPMath Test</h1>
+  <p>This is a test page. TODO:</p>
+  <ul>
+    <li>Get current price per token</li>
+    <li>Support user interactions for scatterplat token selection</li>
+    <li>Support user interactions for price threshold</li>
+    <li>Vegalite is slow when many trials are inserted 1 at a time. Load all at once</li>
+  <ul
+  <div id="chances"></div>
+  <p id="sips"></p>
+  <div id="vis0"></div>
+  <div id="vis1"></div>
+  <div id="vis2"></div>
+  <div id="vis3"></div>
+  <div id="vis4"></div>
+  <div id="scatterplot"></div>
+
+  
+
+  <script>
+    const trials = 500;
+    const chance = 0.8;
+    const currentPrice = 10.0; // from wallet connect for a token adjust to all tokens
+    const PM_roundChanceOfWhatever = false;
+    const PM_roundChancePercent = 5
+    const symbol = ">="; // < or > ?? set in ui
+    const threshold = 9.6; // this will be a token price threshold entered by the user
+    const compareToken1 = 0; // this may be a token choosen by the user
+    const compareToken2 = 1; // this may be a token choosen by the user
+    let chanceOf; // this will be a token price threshold entered by the user
+    let scatterPlotData = [];
+
+    (function () {
+      var LibraryIn = "https://ipfs.io/ipfs/QmTn16U9YtbMeGkYWtRFZ5XrNA7tiKQYyRSgX4Es3TWouB";
+      $.getJSON(LibraryIn)
+        .done(function (data) {
+          var items = [];
+          const spec = {
+            "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+            "title": "Token Price % Change Distribution",
+            "data": {
+              "name": "table"
+            },
+            "mark": "bar",
+            "encoding": {
+              "x": {
+                "bin": true,
+                "field": "b"
+              },
+              "y": {
+                "aggregate": "count"
+              }
+            }
+          }
+          const spec2 = {
+            "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+            "description": "A scatterplot.",
+            "title": {
+              "text": "Frist two tokens",
+              "anchor": "middle"},
+            "data": {
+              "name": "table2"
+            },
+            "mark": {"type": "point", "filled": true},
+            "encoding": {
+              "x": {
+                "field": "a",
+                "type": "quantitative",
+                "scale": {"zero": false}
+              },
+              "y": {
+                "field": "b",
+                "type": "quantitative",
+                "scale": {"zero": false}
+
+              }
+            }
+          }
+
+          $.each(data.sips, function (i, item) {
+            trialData = hydrateLibrary(data, item.name, trials);
+            scatterPlotData[i] = trialData
+            // apply % chances in price to the current price for each trial
+            const priceDist = trialData.map(x => x * currentPrice);
+            //console.log(priceDist);
+            switch (symbol) {
+              case '<':
+                chanceOf = priceDist.filter(v => v < threshold); // operator defined by ui/user??
+                break;
+              case '>':
+                chanceOf = priceDist.filter(v => v > threshold); // operator defined by ui/user??
+              case '<=':
+                chanceOf = priceDist.filter(v => v >= threshold); // operator defined by ui/user??
+                break;
+              case '>=':
+                chanceOf = priceDist.filter(v => v >= threshold); // operator defined by ui/user??
+                break;
+              default:
+                console.log(`Err, wtf ${expr}.`);
+            }
+
+            // console.log(chanceOf.length);
+            // console.log(chanceOf.length / trials);
+            // console.log('i ',i)
+            let chanceOut = chanceOf.length / trials;
+            if (chanceOut === 0.0) {
+              chanceOut = 'very, very low';
+            };
+            if (chanceOut === 1) {
+              chanceOut = 'very, very high';
+            };
+            items.push("<li id='" + item.name + "'>" + item.name + " has a " + chanceOut +
+              " chance of being " + symbol + " " + threshold + " at close today (UTC)"+"</li>");
+
+            // Hmm need something else above as trial count is very sensitive ask Danny
+            // get this into ui
+            // PM_roundChanceOfWhatever is the rounding eg 5 decimal places
+
+            vegaEmbed('#vis' + i, spec, {
+                defaultStyle: true
+              })
+              .then(function (result) {
+                const view = result.view;
+                //console.log(trialData);
+                // Use the Vega view api to insert data
+                var vegaData = {};
+                priceDist.forEach((element, index1) => {
+                  //console.log('what is here ', index1);
+                  vegaData = {
+                    "a": index1,
+                    "b": element
+                  };
+                  //console.log(vegaData);
+
+                  view.insert("table", vegaData).run();
+                })
+              })
+              .catch(console.warn);
+          }); // end of for each sip
+
+          vegaEmbed('#scatterplot',spec2, {
+                defaultStyle: true
+              })
+              .then(function (result) {
+                const view = result.view;
+                // Use the Vega view api to insert data
+                console.log(scatterPlotData);
+                var vegaData = {};
+                  //console.log('what is here ', index1);
+                  scatterPlotData[0].forEach((element2, index2) => {
+                    //console.log('what is here ', element2, index2);
+                      vegaData2 = {
+                      "a": scatterPlotData[compareToken1][index2],
+                      "b": scatterPlotData[compareToken2][index2]
+                    };
+                  //  console.log(vegaData2);
+                    view.insert("table2", vegaData2).run();
+                 })
+              }) //end for each
+              .catch(console.warn);
+
+          $("<ul/>", {
+            "class": "my-new-list",
+            html: items.join("")
+          }).appendTo("body");
+        });
+    })();
+  </script>
+
+
+</body>
+
+</html>
